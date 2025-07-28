@@ -109,7 +109,7 @@ if menu == "Provider":
                         )
                     )
                     st.success("Provider added successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Insert failed: {e}")
 
@@ -184,7 +184,7 @@ elif menu == "Patient":
                         )
                     )
                     st.success("Patient added successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Insert failed: {e}")
 
@@ -247,7 +247,7 @@ elif menu == "Patient Insurance":
                         )
                     )
                     st.success("Insurance added successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Insert failed: {e}")
 
