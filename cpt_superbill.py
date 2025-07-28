@@ -15,6 +15,7 @@ from openai import OpenAI
 load_dotenv()
 st.set_page_config(page_title="CPT + Superbill Generator", page_icon="🩺", layout="wide")
 
+# Secrets expected: OPENAI_API_KEY, DB_USER, DB_PASSWORD, DB_HOST, DB_NAME
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 DB_CONFIG = {
@@ -100,7 +101,7 @@ def load_mapping_for_site(site: str) -> List[Dict[str, Any]]:
 # ----------------------------
 def upsert_provider(payload: Dict[str, Any]) -> int:
     """
-    Upsert by NPI if present, else insert a new provider.
+    Upsert by NPI if present, else by name.
     Returns provider_id.
     """
     conn = get_conn()
@@ -159,7 +160,7 @@ def upsert_provider(payload: Dict[str, Any]) -> int:
 
 def upsert_patient(payload: Dict[str, Any]) -> int:
     """
-    Simple upsert by (name, dob). Adjust to your own dedupe strategy.
+    Simple upsert by (name, dob). Adjust your dedupe strategy if needed.
     """
     conn = get_conn()
     try:
@@ -326,7 +327,7 @@ def generate_mdm_criteria_and_cpt_rationale(matched_row, mdm_level, time_minutes
     rationale = f"The selected CPT code ({matched_row['cpt_code']}) is based on the following:\n"
     rationale += f"\n**MDM Criteria Met:**"
     rationale += f"\n- **Problems Addressed:** {matched_row['problems_addressed']}"
-    rationale += f"\n- **Data Complexity:** {matched_row['data_complexity']}"""
+    rationale += f"\n- **Data Complexity:** {matched_row['data_complexity']}"
     rationale += f"\n- **Risk:** {matched_row['risk']}"
     rationale += f"\n\n**MDM Level:** {mdm_level}"
 
@@ -493,6 +494,7 @@ tab_intake, tab_mdm = st.tabs([
 with tab_intake:
     st.subheader("Provider + Patient Intake")
 
+    # IMPORTANT: submit button is INSIDE this form
     with st.form("intake_form"):
         st.markdown("### Provider")
         pcol1, pcol2, pcol3 = st.columns(3)
@@ -623,6 +625,7 @@ with tab_mdm:
     if not providers or not patients:
         st.warning("Please create at least one Provider and one Patient in the Intake tab.")
     else:
+        # IMPORTANT: submit button is INSIDE this form
         with st.form("mdm_form"):
             pcol1, pcol2 = st.columns(2)
             with pcol1:
