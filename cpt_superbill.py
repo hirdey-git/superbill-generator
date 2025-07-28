@@ -1,10 +1,11 @@
+# app.py
 import streamlit as st
 import mysql.connector
 from mysql.connector import Error
 from datetime import date
 import re
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -60,13 +61,14 @@ def rollback_and_close(conn, cur=None):
 def load_site_options() -> List[str]:
     conn = get_conn()
     try:
-        rows, cur = run_query(conn,
+        rows, cur = run_query(
+            conn,
             "SELECT DISTINCT site_of_origination FROM cpt_mdm_mapping ORDER BY site_of_origination",
             fetchall=True
         )
         commit_and_close(conn, cur)
         return [r["site_of_origination"] for r in rows]
-    except:
+    except Exception:
         conn.close()
         return []
 
@@ -84,9 +86,11 @@ def load_patients() -> List[Dict[str, Any]]:
 
 def load_mapping_for_site(site: str) -> List[Dict[str, Any]]:
     conn = get_conn()
-    rows, cur = run_query(conn,
+    rows, cur = run_query(
+        conn,
         "SELECT * FROM cpt_mdm_mapping WHERE site_of_origination = %s",
-        (site,), fetchall=True
+        (site,),
+        fetchall=True
     )
     commit_and_close(conn, cur)
     return rows
@@ -102,14 +106,18 @@ def upsert_provider(payload: Dict[str, Any]) -> int:
     conn = get_conn()
     try:
         if payload.get("npi"):
-            existing, cur = run_query(conn,
+            existing, cur = run_query(
+                conn,
                 "SELECT id FROM providers WHERE npi = %s",
-                (payload["npi"],), fetchone=True
+                (payload["npi"],),
+                fetchone=True
             )
         else:
-            existing, cur = run_query(conn,
+            existing, cur = run_query(
+                conn,
                 "SELECT id FROM providers WHERE name = %s",
-                (payload["name"],), fetchone=True
+                (payload["name"],),
+                fetchone=True
             )
 
         if existing:
@@ -155,9 +163,11 @@ def upsert_patient(payload: Dict[str, Any]) -> int:
     """
     conn = get_conn()
     try:
-        existing, cur = run_query(conn,
+        existing, cur = run_query(
+            conn,
             "SELECT id FROM patients WHERE name = %s AND dob = %s",
-            (payload["name"], payload["dob"]), fetchone=True
+            (payload["name"], payload["dob"]),
+            fetchone=True
         )
 
         if existing:
@@ -234,7 +244,10 @@ def parse_icd_list(raw: str) -> List[str]:
     parts = re.split(r'[,;\n]+', raw)
     return [p.strip() for p in parts if p.strip()]
 
-def determine_mdm_level_with_ai(mdm_text: str, mapping_rows: List[Dict[str, Any]]) -> (str, Dict[str, int]):
+def determine_mdm_level_with_ai(
+    mdm_text: str,
+    mapping_rows: List[Dict[str, Any]]
+) -> Tuple[str, Dict[str, int]]:
     level_summary = {}
     for row in mapping_rows:
         level = row['mdm_level']
@@ -245,7 +258,10 @@ def determine_mdm_level_with_ai(mdm_text: str, mapping_rows: List[Dict[str, Any]
                 "Risk": row['risk']
             }
 
-    prompt = "You are a medical coding assistant. Based on the doctor's Medical Decision Making (MDM) description below, identify the most appropriate MDM Level: Straightforward, Low, Moderate, or High.\n\n"
+    prompt = (
+        "You are a medical coding assistant. Based on the doctor's Medical Decision Making (MDM) "
+        "description below, identify the most appropriate MDM Level: Straightforward, Low, Moderate, or High.\n\n"
+    )
     for level, c in level_summary.items():
         prompt += f"MDM Level: {level}\n"
         prompt += f"  - Problems Addressed: {c['Problems Addressed']}\n"
@@ -263,9 +279,9 @@ def determine_mdm_level_with_ai(mdm_text: str, mapping_rows: List[Dict[str, Any]
     usage_dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     if usage:
         usage_dict = {
-            "prompt_tokens": usage.prompt_tokens,
-            "completion_tokens": usage.completion_tokens,
-            "total_tokens": usage.total_tokens
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(usage, "completion_tokens", 0),
+            "total_tokens": getattr(usage, "total_tokens", 0)
         }
     return mdm_level, usage_dict
 
@@ -274,8 +290,10 @@ def extract_or_estimate_time(mdm_text: str) -> Optional[int]:
     if match:
         return int(match.group(1))
 
-    prompt = 'Estimate how many minutes were spent with the patient based on the following MDM text:\n"""\n'
-    prompt += mdm_text + '\n"""Respond with only a number of minutes'
+    prompt = (
+        'Estimate how many minutes were spent with the patient based on the following MDM text:\n"""\n'
+        f'{mdm_text}\n"""Respond with only a number of minutes'
+    )
 
     resp = client.chat.completions.create(
         model="gpt-4",
@@ -285,7 +303,7 @@ def extract_or_estimate_time(mdm_text: str) -> Optional[int]:
     content = resp.choices[0].message.content.strip()
     try:
         return int(re.search(r'(\d+)', content).group(1))
-    except:
+    except Exception:
         return None
 
 def match_cpt(mapping_rows, mdm_level, time_minutes):
@@ -308,7 +326,7 @@ def generate_mdm_criteria_and_cpt_rationale(matched_row, mdm_level, time_minutes
     rationale = f"The selected CPT code ({matched_row['cpt_code']}) is based on the following:\n"
     rationale += f"\n**MDM Criteria Met:**"
     rationale += f"\n- **Problems Addressed:** {matched_row['problems_addressed']}"
-    rationale += f"\n- **Data Complexity:** {matched_row['data_complexity']}"
+    rationale += f"\n- **Data Complexity:** {matched_row['data_complexity']}"""
     rationale += f"\n- **Risk:** {matched_row['risk']}"
     rationale += f"\n\n**MDM Level:** {mdm_level}"
 
@@ -326,8 +344,12 @@ def generate_mdm_criteria_and_cpt_rationale(matched_row, mdm_level, time_minutes
 
 def suggest_higher_billing_mdm_and_cpt(mdm_text, mapping_rows):
     higher_levels = [row for row in mapping_rows if row['mdm_level'].lower() == 'high']
-    prompt = f"You are a medical coding assistant. Here is the doctor's current MDM text:\n{mdm_text}\n\n"
-    prompt += "Use ONLY the following elements (Problems Addressed, Data Complexity, Risk) from higher MDM levels to suggest how this text could be reworded to support higher CPT billing (without adding new diagnoses or conditions). Then, suggest the new CPT code based on the improved MDM and provide the MDM criteria met:\n\n"
+    prompt = (
+        f"You are a medical coding assistant. Here is the doctor's current MDM text:\n{mdm_text}\n\n"
+        "Use ONLY the following elements (Problems Addressed, Data Complexity, Risk) from higher MDM levels to suggest "
+        "how this text could be reworded to support higher CPT billing (without adding new diagnoses or conditions). "
+        "Then, suggest the new CPT code based on the improved MDM and provide the MDM criteria met:\n\n"
+    )
 
     for row in higher_levels:
         prompt += f"MDM Level: {row['mdm_level']}\n"
@@ -460,7 +482,10 @@ def insert_superbill_lines(superbill_id: int, lines: List[Dict[str, Any]]):
 # ----------------------------
 st.title("🩺 Streamlit → MySQL: Intake, MDM→CPT, and Superbill")
 
-tab_intake, tab_mdm = st.tabs(["👤 Intake (Providers / Patients / Insurance)", "🧠 MDM → CPT & Superbill"])
+tab_intake, tab_mdm = st.tabs([
+    "👤 Intake (Providers / Patients / Insurance)",
+    "🧠 MDM → CPT & Superbill"
+])
 
 # ----------------------------
 # TAB 1: INTAKE
