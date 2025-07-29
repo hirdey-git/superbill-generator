@@ -325,7 +325,7 @@ def generate_superbill_pdf_bytes(patient_name: str,
                                  provider_name: str,
                                  site: str,
                                  cpt_code: str,
-                                 mds_text: str,
+                                 mdm_text: str,
                                  mdm_level: str,
                                  time_minutes,
                                  encounter_id: int) -> bytes:
