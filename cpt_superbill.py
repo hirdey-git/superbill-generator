@@ -374,11 +374,11 @@ def generate_superbill_pdf_bytes(patient_name: str,
 
     line("Encounter / Coding", bold=True)
     line(f"Site of Origination: {site}")
-    line("Assessment and Plan:", bold=True)
-    wrapped_text(mdm_text)
     line(f"CPT Code: {cpt_code or 'N/A'}")
     line(f"MDM Level: {mdm_level}")
     line(f"Time Spent: {time_minutes if time_minutes is not None else 'Not documented'} minutes")
+    line("Assessment and Plan:")
+    wrapped_text(mdm_text)
 
     p.showPage()
     p.save()
