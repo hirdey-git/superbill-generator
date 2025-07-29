@@ -1,14 +1,9 @@
 # app.py
 import streamlit as st
 import mysql.connector
-from mysql.connector import Error
 import datetime as dt
 import re
-import time
 from typing import Optional, Tuple, List, Dict, Any
-import pdfkit
-import tempfile
-import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
