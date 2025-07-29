@@ -7,6 +7,7 @@ from typing import Optional, Tuple, List, Dict, Any
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
+import textwrap
 
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -335,12 +336,29 @@ def generate_superbill_pdf_bytes(patient_name: str,
 
     y = height - 50
     lh = 18
+    wrap_width = 90  # Adjust based on font size and page margins
 
     def line(text, bold=False, size=11):
         nonlocal y
+        if y < 50:  # New page if close to bottom
+            p.showPage()
+            y = height - 50
         p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         p.drawString(50, y, str(text))
         y -= lh
+
+    def wrapped_text(text, bold=False, size=11):
+        nonlocal y
+        p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        for paragraph in text.split('\n'):
+            wrapped_lines = textwrap.wrap(paragraph, width=wrap_width)
+            for line_text in wrapped_lines:
+                if y < 50:
+                    p.showPage()
+                    y = height - 50
+                    p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+                p.drawString(50, y, line_text)
+                y -= lh
 
     line("SUPERBILL", bold=True, size=16)
     line(f"Encounter ID: {encounter_id}")
@@ -356,7 +374,8 @@ def generate_superbill_pdf_bytes(patient_name: str,
 
     line("Encounter / Coding", bold=True)
     line(f"Site of Origination: {site}")
-    line(f"Assessment and Plan: {mdm_text}")
+    line("Assessment and Plan:", bold=True)
+    wrapped_text(mdm_text)
     line(f"CPT Code: {cpt_code or 'N/A'}")
     line(f"MDM Level: {mdm_level}")
     line(f"Time Spent: {time_minutes if time_minutes is not None else 'Not documented'} minutes")
@@ -365,6 +384,7 @@ def generate_superbill_pdf_bytes(patient_name: str,
     p.save()
     buffer.seek(0)
     return buffer.getvalue()
+
 
 # =============================
 # UI Menu
