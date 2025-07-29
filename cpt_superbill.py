@@ -6,6 +6,13 @@ import datetime as dt
 import re
 import time
 from typing import Optional, Tuple, List, Dict, Any
+import pdfkit
+import tempfile
+import os
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from io import BytesIO
+
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from openai import OpenAI
@@ -318,6 +325,50 @@ def save_encounter(patient_id: int,
     row = exec_read("SELECT LAST_INSERT_ID() AS id", dict_cursor=True)[0]
     return int(row["id"])
 
+#-----------------------
+def generate_superbill_pdf_bytes(patient_name: str,
+                                 provider_name: str,
+                                 site: str,
+                                 cpt_code: str,
+                                 mdm_level: str,
+                                 time_minutes,
+                                 encounter_id: int) -> bytes:
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    y = height - 50
+    lh = 18
+
+    def line(text, bold=False, size=11):
+        nonlocal y
+        p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        p.drawString(50, y, str(text))
+        y -= lh
+
+    line("SUPERBILL", bold=True, size=16)
+    line(f"Encounter ID: {encounter_id}")
+    line("")
+
+    line("Patient", bold=True)
+    line(f"Name: {patient_name}")
+    line("")
+
+    line("Provider", bold=True)
+    line(f"Name: {provider_name}")
+    line("")
+
+    line("Encounter / Coding", bold=True)
+    line(f"Site of Origination: {site}")
+    line(f"CPT Code: {cpt_code or 'N/A'}")
+    line(f"MDM Level: {mdm_level}")
+    line(f"Time Spent: {time_minutes if time_minutes is not None else 'Not documented'} minutes")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
 # =============================
 # UI Menu
 # =============================
@@ -543,7 +594,7 @@ elif menu == "Patient Insurance":
 # 4) MDM / CPT Generator
 # -----------------------------
 elif menu == "MDM / CPT Generator":
-    st.header("🧠 Generate CPT Code from MDM Text")
+    st.header("🧠 Generate CPT Code from MDM Text + Superbill PDF")
 
     # Load dropdowns
     try:
@@ -603,6 +654,7 @@ elif menu == "MDM / CPT Generator":
             st.write(improved_suggestion)
             improved_cpt_code = parse_cpt_from_text(improved_suggestion)
 
+            # Save encounter
             encounter_id = save_encounter(
                 patient_id=patient_map[patient_display],
                 provider_id=provider_map[provider_display],
@@ -615,9 +667,34 @@ elif menu == "MDM / CPT Generator":
                 rationale=rationale,
                 improved_mdm_text=improved_suggestion,
                 improved_cpt_code=improved_cpt_code,
-                ai_model=OPENAI_MODEL
+                ai_model=OPENAI_MODEL  # keep if your table has this column
             )
             st.success(f"✅ Encounter saved (ID: {encounter_id}).")
+
+            # -------------------
+            # 📄 Superbill PDF (ReportLab)
+            # -------------------
+            st.subheader("📄 Download Superbill PDF")
+            patient_name = patient_display.split(" (")[0]
+            provider_name = provider_display.split(" (")[0]
+            cpt_code = matched_cpt['cpt_code'] if matched_cpt else "N/A"
+
+            pdf_bytes = generate_superbill_pdf_bytes(
+                patient_name=patient_name,
+                provider_name=provider_name,
+                site=site,
+                cpt_code=cpt_code,
+                mdm_level=mdm_level,
+                time_minutes=time_minutes,
+                encounter_id=encounter_id
+            )
+
+            st.download_button(
+                label="⬇️ Download Superbill PDF",
+                data=pdf_bytes,
+                file_name=f"superbill_encounter_{encounter_id}.pdf",
+                mime="application/pdf"
+            )
 
         except Exception as e:
             st.error(f"Error generating/saving encounter: {e}")
@@ -642,6 +719,7 @@ elif menu == "MDM / CPT Generator":
             st.info("No encounters yet.")
     except Exception as e:
         st.error(f"Read failed: {e}")
+
 
 # -----------------------------
 # 5) Browse / Verify Data
