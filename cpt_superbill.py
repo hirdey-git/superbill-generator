@@ -681,7 +681,7 @@ elif menu == "MDM / CPT Generator":
                 provider_name=provider_name,
                 site=site,
                 cpt_code=cpt_code,
-                mdm_text=
+                mdm_text=mdm_text,
                 mdm_level=mdm_level,
                 time_minutes=time_minutes,
                 encounter_id=encounter_id
