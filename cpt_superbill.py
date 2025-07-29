@@ -325,6 +325,7 @@ def generate_superbill_pdf_bytes(patient_name: str,
                                  provider_name: str,
                                  site: str,
                                  cpt_code: str,
+                                 mds_text: str,
                                  mdm_level: str,
                                  time_minutes,
                                  encounter_id: int) -> bytes:
@@ -355,6 +356,7 @@ def generate_superbill_pdf_bytes(patient_name: str,
 
     line("Encounter / Coding", bold=True)
     line(f"Site of Origination: {site}")
+    line(f"Assessment and Plan: {mdm_text}")
     line(f"CPT Code: {cpt_code or 'N/A'}")
     line(f"MDM Level: {mdm_level}")
     line(f"Time Spent: {time_minutes if time_minutes is not None else 'Not documented'} minutes")
@@ -679,6 +681,7 @@ elif menu == "MDM / CPT Generator":
                 provider_name=provider_name,
                 site=site,
                 cpt_code=cpt_code,
+                mdm_text=
                 mdm_level=mdm_level,
                 time_minutes=time_minutes,
                 encounter_id=encounter_id
