@@ -395,6 +395,8 @@ menu = st.sidebar.selectbox(
         "Provider",
         "Patient",
         "Patient Insurance",
+        "Patient History",
+        "Patient Examination",
         "MDM / CPT Generator",
         "Browse / Verify Data"
     ]
@@ -738,7 +740,104 @@ elif menu == "MDM / CPT Generator":
     except Exception as e:
         st.error(f"Read failed: {e}")
 
+elif menu == "Patient History":
+    st.header("Enter Patient History")
+    patients = exec_read("SELECT id, name, dob FROM cpt_patients ORDER BY name")
+    patient_map = {name: pid for pid, name in patients}
+    selected_patient = st.selectbox("Patient", list(patient_map.keys()))
+    patient_id = patient_map[selected_patient]
 
+    with st.form("history_form"):
+        cc = st.text_area("Chief Complaint")
+        hpi = st.text_area("History of Present Illness")
+        pfsh = st.text_area("Past/Family/Social History")
+
+        ros_fields = {
+            "Constitutional": st.text_area("ROS - Constitutional symptoms"),
+            "ENT": st.text_area("ROS - Eyes, Ears, Nose, Mouth, Throat"),
+            "Cardiovascular": st.text_area("ROS - Cardiovascular"),
+            "Respiratory": st.text_area("ROS - Respiratory"),
+            "GI": st.text_area("ROS - Gastrointestinal"),
+            "GU": st.text_area("ROS - Genitourinary"),
+            "MSK": st.text_area("ROS - Musculoskeletal/Integumentary"),
+            "Neuro": st.text_area("ROS - Neurological"),
+            "Psych": st.text_area("ROS - Psychiatric"),
+            "Endocrine": st.text_area("ROS - Endocrine"),
+            "Heme/Immune": st.text_area("ROS - Hematologic/Lymphatic/Immunologic"),
+        }
+
+        submitted = st.form_submit_button("Save History")
+        if submitted:
+            conn = get_connection()
+            cursor = conn.cursor()
+            sql = """
+                INSERT INTO cpt_patient_history (
+                    patient_id, chief_complaint, hpi, pfsh,
+                    ros_constitutional, ros_ent, ros_cardiovascular,
+                    ros_respiratory, ros_gastrointestinal, ros_genitourinary,
+                    ros_musculoskeletal, ros_neurological, ros_psychiatric,
+                    ros_endocrine, ros_hematologic
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                patient_id, cc, hpi, pfsh,
+                ros_fields["Constitutional"], ros_fields["ENT"], ros_fields["Cardiovascular"],
+                ros_fields["Respiratory"], ros_fields["GI"], ros_fields["GU"],
+                ros_fields["MSK"], ros_fields["Neuro"], ros_fields["Psych"],
+                ros_fields["Endocrine"], ros_fields["Heme/Immune"]
+            ))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            st.success("Patient history saved successfully!")
+#----
+elif menu == "Patient Examination":
+    st.header("Enter Patient Examination")
+    patients = exec_read("SELECT id, name, dob FROM cpt_patients ORDER BY name")
+    patient_map = {name: pid for pid, name in patients}
+    selected_patient = st.selectbox("Patient", list(patient_map.keys()))
+    patient_id = patient_map[selected_patient]
+
+    exam_type = st.radio("Examination Type", ["body_area", "organ_system"])
+
+    with st.form("exam_form"):
+        if exam_type == "body_area":
+            data = {
+                "exam_head_face": st.text_area("Head/Face"),
+                "exam_neck": st.text_area("Neck"),
+                "exam_chest": st.text_area("Chest/Breasts/Axillae"),
+                "exam_abdomen": st.text_area("Abdomen"),
+                "exam_genitalia": st.text_area("Genitalia/Groin/Buttocks"),
+                "exam_back": st.text_area("Back/Spine"),
+                "exam_extremities": st.text_area("Each Extremity"),
+            }
+        else:
+            data = {
+                "exam_constitutional": st.text_area("Constitutional (Vitals, Appearance)"),
+                "exam_ent": st.text_area("Eyes, Ears, Nose, Mouth, Throat"),
+                "exam_cardiovascular": st.text_area("Cardiovascular"),
+                "exam_respiratory": st.text_area("Respiratory"),
+                "exam_gastrointestinal": st.text_area("Gastrointestinal"),
+                "exam_genitourinary": st.text_area("Genitourinary"),
+                "exam_musculoskeletal": st.text_area("Musculoskeletal"),
+                "exam_skin": st.text_area("Skin"),
+                "exam_neurologic": st.text_area("Neurologic"),
+                "exam_psychiatric": st.text_area("Psychiatric"),
+                "exam_hematologic": st.text_area("Hematologic/Lymphatic/Immunologic"),
+            }
+
+        submitted = st.form_submit_button("Save Examination")
+        if submitted:
+            conn = get_connection()
+            cursor = conn.cursor()
+            columns = ["patient_id", "exam_type"] + list(data.keys())
+            placeholders = ", ".join(["%s"] * len(columns))
+            sql = f"INSERT INTO cpt_patient_examination ({', '.join(columns)}) VALUES ({placeholders})"
+            cursor.execute(sql, [patient_id, exam_type] + list(data.values()))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            st.success("Examination saved successfully!")    
 # -----------------------------
 # 5) Browse / Verify Data
 # -----------------------------
