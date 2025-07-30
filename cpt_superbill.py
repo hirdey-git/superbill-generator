@@ -743,7 +743,7 @@ elif menu == "MDM / CPT Generator":
 elif menu == "Patient History":
     st.header("Enter Patient History")
     patients = exec_read("SELECT id, name, dob FROM cpt_patients ORDER BY name")
-    patient_map = {name: pid for pid, name in patients}
+    patient_map = {f"{p['name']} (#{p['id']}, DOB: {p['dob']})": p['id'] for p in patients}
     selected_patient = st.selectbox("Patient", list(patient_map.keys()))
     patient_id = patient_map[selected_patient]
 
@@ -794,7 +794,7 @@ elif menu == "Patient History":
 elif menu == "Patient Examination":
     st.header("Enter Patient Examination")
     patients = exec_read("SELECT id, name, dob FROM cpt_patients ORDER BY name")
-    patient_map = {name: pid for pid, name in patients}
+    patient_map = {f"{p['name']} (#{p['id']}, DOB: {p['dob']})": p['id'] for p in patients}
     selected_patient = st.selectbox("Patient", list(patient_map.keys()))
     patient_id = patient_map[selected_patient]
 
